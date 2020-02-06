@@ -3,9 +3,10 @@ from datetime import date, datetime
 import pandas as pd
 from dateutil.relativedelta import relativedelta
 
-def calculate(onboard_date=date(2018, 1, 8)):
+def calculate(onboard_date=date(2018, 1, 8), leave_rule=[10, 10, 10, 14, 14, 15, 15, 15, 15, 15, 16, 17, 18, 19, 20, 21]):
     while True:
         leave_records = pd.read_csv("leave.csv")
+        leave_records["off_date"] = leave_records["off_date"].apply(lambda x: date.fromisoformat(x))
         mission = input(
             """
             Choose one mission:
@@ -18,13 +19,18 @@ def calculate(onboard_date=date(2018, 1, 8)):
         if mission not in {"a", "b", "c", "q"}:
             raise ValueError("You should pick one mission from the list")
         elif mission == "a":
-            # Assuming under no circumstance would the unused leave days exceed 20 days
             time_delta = relativedelta(date.today(), onboard_date)
-            max_leave = (time_delta.years + 1) * 10
-            leave_taken = leave_records["period"].sum()
-            leave_left = max_leave - leave_taken
-            if (leave_left + 10 > 20) and (time_delta.months >= 9):
-                print("You are about to exceed the maximum unused leave days next year. Take a break!")
+            leave_left = 0
+            for y in range(time_delta.years+1):
+                leave_left += leave_rule[y]
+                if leave_left > 20:
+                    leave_left = 20
+                leave_taken = leave_records.loc[
+                    (leave_records["off_date"] < onboard_date + relativedelta(years=y+1)) &
+                    (leave_records["off_date"] >= onboard_date + relativedelta(years=y)),
+                    "period"
+                ].sum()
+                leave_left -= leave_taken
             print(leave_left)
         elif mission == "b":
             while True:
