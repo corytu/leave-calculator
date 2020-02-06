@@ -10,6 +10,7 @@ def calculate(onboard_date=date(2018, 1, 8), leave_rule=[10, 10, 10, 14, 14, 15,
             f.write("off_date,period")
     leave_records = pd.read_csv("leave.csv")
     leave_records["off_date"] = leave_records["off_date"].apply(lambda x: date.fromisoformat(x))
+    leave_records_original_size = leave_records.shape[0]
     while True:
         mission = input(
             """
@@ -63,7 +64,8 @@ def calculate(onboard_date=date(2018, 1, 8), leave_rule=[10, 10, 10, 14, 14, 15,
         elif mission == "c":
             print(leave_records)
         else:
-            leave_records.to_csv("leave.csv", index=False)
+            if leave_records.shape[0] > leave_records_original_size:
+                leave_records.to_csv("leave.csv", index=False)
             break
 
 if __name__ == "__main__":
