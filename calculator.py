@@ -21,7 +21,7 @@ def calculate(onboard_date=date(2018, 1, 8), leave_rule=[10, 10, 10, 14, 14, 15,
             """
         ).lower()
         if mission not in {"a", "b", "c", "q"}:
-            raise ValueError("You should pick one mission from the list")
+            print("You should pick one mission from the list")
         elif mission == "a":
             time_delta = relativedelta(date.today(), onboard_date)
             leave_left = 0
