@@ -1,10 +1,21 @@
+import argparse
 import os
 from datetime import date
 
 import pandas as pd
 from dateutil.relativedelta import relativedelta
 
-def calculate(onboard_date=date(2018, 1, 8), leave_rule=[10, 10, 10, 14, 14, 15, 15, 15, 15, 15, 16, 17, 18, 19, 20, 21]):
+parser = argparse.ArgumentParser(description="Calculate how much leave you still have")
+default_onboard_date = "2018-01-08"
+parser.add_argument(
+    "onboard_date",
+    type=lambda d: date.fromisoformat(d),
+    nargs="?",
+    default=default_onboard_date,
+    help=f"Your on-board date in iso format (default {default_onboard_date})"
+)
+
+def calculate(onboard_date, leave_rule=[10, 10, 10, 14, 14, 15, 15, 15, 15, 15, 16, 17, 18, 19, 20, 21]):
     if not os.path.isfile("leave.csv"):
         with open("leave.csv", "w") as f:
             f.write("off_date,period")
@@ -41,7 +52,6 @@ def calculate(onboard_date=date(2018, 1, 8), leave_rule=[10, 10, 10, 14, 14, 15,
             while True:
                 off_start = input("On what date does your vacation start? (yyyy-mm-dd)\n")
                 try:
-                    # Making sure the date format is correct
                     off_start = date.fromisoformat(off_start)
                     break
                 except ValueError:
@@ -69,4 +79,5 @@ def calculate(onboard_date=date(2018, 1, 8), leave_rule=[10, 10, 10, 14, 14, 15,
             break
 
 if __name__ == "__main__":
-    calculate()
+    parsed_args = parser.parse_args()
+    calculate(onboard_date=parsed_args.onboard_date)
