@@ -75,7 +75,7 @@ def calculate(onboard_date, leave_rule=[10, 10, 10, 14, 14, 15, 15, 15, 15, 15, 
             print(leave_records)
         else:
             if leave_records.shape[0] > leave_records_original_size:
-                leave_records.to_csv("leave.csv", index=False)
+                leave_records.sort_values("off_date").to_csv("leave.csv", index=False)
             break
 
 if __name__ == "__main__":
