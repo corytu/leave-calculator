@@ -1,21 +1,18 @@
-import argparse
+import configparser
+import json
 import os
 from datetime import date
 
 import pandas as pd
 from dateutil.relativedelta import relativedelta
 
-parser = argparse.ArgumentParser(description="Calculate how much leave you still have")
-default_onboard_date = "2018-01-08"
-parser.add_argument(
-    "onboard_date",
-    type=lambda d: date.fromisoformat(d),
-    nargs="?",
-    default=default_onboard_date,
-    help=f"Your on-board date in iso format (default {default_onboard_date})"
-)
+config = configparser.ConfigParser()
+config.read("config.ini")
+ONBOARDDATE = date.fromisoformat(config["DEFAULT"]["onboarddate"])
+LEAVERULE = json.loads(config["DEFAULT"]["leaverule"])
 
-def calculate(onboard_date, leave_rule=[10, 10, 10, 14, 14, 15, 15, 15, 15, 15, 16, 17, 18, 19, 20, 21]):
+
+def calculate(onboard_date=ONBOARDDATE, leave_rule=LEAVERULE):
     if not os.path.isfile("leave.csv"):
         with open("leave.csv", "w") as f:
             f.write("off_date,period")
@@ -37,12 +34,12 @@ def calculate(onboard_date, leave_rule=[10, 10, 10, 14, 14, 15, 15, 15, 15, 15, 
         elif mission == "a":
             time_delta = relativedelta(date.today(), onboard_date)
             leave_left = 0
-            for y in range(time_delta.years+1):
+            for y in range(time_delta.years + 1):
                 leave_left += leave_rule[y]
                 if leave_left > 20:
                     leave_left = 20
                 leave_taken = leave_records.loc[
-                    (leave_records["off_date"] < onboard_date + relativedelta(years=y+1)) &
+                    (leave_records["off_date"] < onboard_date + relativedelta(years=y + 1)) &
                     (leave_records["off_date"] >= onboard_date + relativedelta(years=y)),
                     "period"
                 ].sum()
@@ -78,6 +75,6 @@ def calculate(onboard_date, leave_rule=[10, 10, 10, 14, 14, 15, 15, 15, 15, 15, 
                 leave_records.sort_values("off_date").to_csv("leave.csv", index=False)
             break
 
+
 if __name__ == "__main__":
-    parsed_args = parser.parse_args()
-    calculate(onboard_date=parsed_args.onboard_date)
+    calculate()
