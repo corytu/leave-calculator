@@ -1,0 +1,45 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - master
+
+# Allow this workflow to write to the gh-pages branch
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Inject today's date as a Vite env variable so the footer can display
+      # "最後更新：YYYY-MM-DD" without any runtime API call.
+      - name: Inject build date
+        run: |
+          BUILD_DATE=$(date -u +%Y-%m-%d)
+          echo "VITE_BUILD_DATE=${BUILD_DATE}" >> .env.production
+          echo "Build date injected: ${BUILD_DATE}"
+
+      - name: Build
+        run: npm run build
+
+      - name: Deploy to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          # Keep a clean gh-pages branch on every deploy
+          force_orphan: true

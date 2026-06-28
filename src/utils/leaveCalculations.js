@@ -1,0 +1,351 @@
+/**
+ * leaveCalculations.js
+ *
+ * Core calculation utilities for Taiwan annual leave (特休假) calculator.
+ * Supports 週年制 (anniversary-based system) only.
+ *
+ * Key concepts:
+ * - Milestone: a month threshold (e.g., 6, 12, 24...) after which a new leave
+ *   entitlement kicks in.
+ * - Period: the interval between two consecutive milestones. The period starting
+ *   at milestone M runs from (onboard + M months) to (onboard + next_milestone months - 1 day).
+ * - For custom rules the last milestone repeats every 12 months indefinitely.
+ */
+
+// ─── Date helpers ────────────────────────────────────────────────────────────
+
+/**
+ * Add months to a date, clamping to the last valid day of the month.
+ * This correctly handles:
+ *   - Jan 31 + 1 month → Feb 28/29 (not Mar 3)
+ *   - Feb 29 + 12 months → Feb 28 (non-leap year)
+ */
+export function addMonthsToDate(date, months) {
+  const d = new Date(date);
+  const originalDay = d.getDate();
+  d.setMonth(d.getMonth() + months);
+  // If the day overflowed into the next month, roll back to the last day of
+  // the intended month (setDate(0) means "last day of previous month").
+  if (d.getDate() !== originalDay) {
+    d.setDate(0);
+  }
+  return d;
+}
+
+/**
+ * Return how many complete months have elapsed from `from` to `to`.
+ * Uses addMonthsToDate to respect the clamping logic above.
+ */
+export function getCompletedMonths(from, to) {
+  // Quick estimate
+  let months =
+    (to.getFullYear() - from.getFullYear()) * 12 +
+    (to.getMonth() - from.getMonth());
+
+  // If the anniversary of `months` months hasn't actually arrived yet today,
+  // decrement by one.
+  if (addMonthsToDate(from, months) > to) {
+    months -= 1;
+  }
+
+  return Math.max(0, months);
+}
+
+/**
+ * Format a Date to YYYY-MM-DD (local date, not UTC).
+ */
+export function toISODateString(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Parse a YYYY-MM-DD string to a local Date (midnight local time).
+ * Using new Date(str) would give midnight UTC and cause off-by-one on timezones.
+ */
+export function parseLocalDate(str) {
+  const [y, m, d] = str.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+// ─── Labor law rules (勞基法第38條第1項) ──────────────────────────────────────
+
+/**
+ * Given completed months of tenure, return the entitlement for that period
+ * under the Labor Standards Act.
+ *
+ * Milestone → days:
+ *   6  → 3
+ *   12 → 7
+ *   24 → 10
+ *   36 → 14    (year 4)
+ *   48 → 14    (year 5)
+ *   60 → 15    (years 6–10)
+ *   120 → 16   (year 11)
+ *   132 → 17   (year 12)  ... +1/yr, capped at 30
+ */
+export function getLaborLawDays(milestoneMonths) {
+  if (milestoneMonths < 6)   return 0;
+  if (milestoneMonths < 12)  return 3;
+  if (milestoneMonths < 24)  return 7;
+  if (milestoneMonths < 36)  return 10;
+  if (milestoneMonths < 60)  return 14;
+  if (milestoneMonths < 120) return 15;
+  // 120+ months: +1 day per completed year beyond 9 full years, max 30
+  const completedYears = Math.floor(milestoneMonths / 12);
+  return Math.min(15 + (completedYears - 9), 30);
+}
+
+/**
+ * Build the ordered list of milestone-month values for the labor law rules,
+ * extended far enough to cover at least `upToMonths`.
+ */
+function buildLaborLawMilestones(upToMonths) {
+  const fixed = [6, 12, 24, 36, 48, 60, 72, 84, 96, 108, 120];
+  let m = 132;
+  while (m <= upToMonths + 12) {
+    fixed.push(m);
+    m += 12;
+  }
+  return fixed;
+}
+
+// ─── Rules resolution ────────────────────────────────────────────────────────
+
+/**
+ * Compute entitled days for the period starting at `milestoneMonths` given
+ * the user's settings.
+ *
+ * @param {number}  milestoneMonths
+ * @param {string}  ruleType        'labor' | 'custom'
+ * @param {Array}   customRules     [{months, days}] sorted ascending
+ */
+export function getDaysForMilestone(milestoneMonths, ruleType, customRules) {
+  if (ruleType === 'custom') {
+    // Walk backwards through sorted rules to find the highest threshold ≤ milestone.
+    const sorted = [...customRules].sort((a, b) => a.months - b.months);
+    let days = 0;
+    for (const rule of sorted) {
+      if (rule.months <= milestoneMonths) {
+        days = rule.days;
+      } else {
+        break;
+      }
+    }
+    return days;
+  }
+  return getLaborLawDays(milestoneMonths);
+}
+
+/**
+ * Return the sorted list of milestone-month values relevant to the given
+ * settings, extended to cover at least `upToMonths`.
+ */
+export function getMilestones(ruleType, customRules, upToMonths = 360) {
+  if (ruleType === 'custom') {
+    const base = [...customRules]
+      .map(r => r.months)
+      .sort((a, b) => a - b);
+
+    if (base.length === 0) return [6]; // fallback
+
+    // Extend with annual repeats of the last interval
+    let last = base[base.length - 1];
+    let m = last + 12;
+    while (m <= upToMonths + 12) {
+      base.push(m);
+      m += 12;
+    }
+    return base;
+  }
+  return buildLaborLawMilestones(upToMonths);
+}
+
+// ─── Period helpers ───────────────────────────────────────────────────────────
+
+/**
+ * Given the milestone that starts a period, return full period metadata.
+ *
+ * @returns {{
+ *   milestoneMonths: number,
+ *   periodStart: Date,
+ *   periodEnd: Date,        ← inclusive last day
+ *   entitledDays: number,
+ * }}
+ */
+export function getPeriodInfo(onboardDate, milestoneMonths, ruleType, customRules) {
+  const allMilestones = getMilestones(ruleType, customRules, milestoneMonths + 24);
+  const idx = allMilestones.indexOf(milestoneMonths);
+
+  let nextMilestoneMonths;
+  if (idx >= 0 && idx + 1 < allMilestones.length) {
+    nextMilestoneMonths = allMilestones[idx + 1];
+  } else {
+    // Past the pre-computed list: add 12 months
+    nextMilestoneMonths = milestoneMonths + 12;
+  }
+
+  const periodStart = addMonthsToDate(onboardDate, milestoneMonths);
+  // Period end is the day before the next period starts (inclusive)
+  const nextStart = addMonthsToDate(onboardDate, nextMilestoneMonths);
+  const periodEnd = new Date(nextStart);
+  periodEnd.setDate(periodEnd.getDate() - 1);
+
+  return {
+    milestoneMonths,
+    nextMilestoneMonths,
+    periodStart,
+    periodEnd,
+    entitledDays: getDaysForMilestone(milestoneMonths, ruleType, customRules),
+  };
+}
+
+/**
+ * Find the period that contains `date`.
+ * Returns null if `date` is before the first milestone.
+ */
+export function getPeriodContainingDate(onboardDate, date, ruleType, customRules) {
+  const completedMonths = getCompletedMonths(onboardDate, date);
+  const milestones = getMilestones(ruleType, customRules, completedMonths + 12);
+
+  // Find the highest milestone that has been reached
+  let currentMilestone = null;
+  for (const m of milestones) {
+    if (completedMonths >= m) {
+      currentMilestone = m;
+    } else {
+      break;
+    }
+  }
+
+  if (currentMilestone === null) return null;
+  return getPeriodInfo(onboardDate, currentMilestone, ruleType, customRules);
+}
+
+/**
+ * Return the period immediately before the one containing `today`.
+ */
+export function getPreviousPeriod(onboardDate, ruleType, customRules, today = new Date()) {
+  const current = getPeriodContainingDate(onboardDate, today, ruleType, customRules);
+  if (!current || current.milestoneMonths === 0) return null;
+
+  const milestones = getMilestones(ruleType, customRules, current.milestoneMonths + 12);
+  const idx = milestones.indexOf(current.milestoneMonths);
+  if (idx <= 0) return null;
+
+  return getPeriodInfo(onboardDate, milestones[idx - 1], ruleType, customRules);
+}
+
+// ─── Leave-record helpers ────────────────────────────────────────────────────
+
+/**
+ * Sum leave days in `records` whose startDate falls within [periodStart, periodEnd].
+ */
+export function getLeaveTakenInPeriod(records, periodStart, periodEnd) {
+  return records.reduce((sum, r) => {
+    const d = parseLocalDate(r.startDate);
+    if (d >= periodStart && d <= periodEnd) {
+      return sum + r.days;
+    }
+    return sum;
+  }, 0);
+}
+
+// ─── Top-level summary ────────────────────────────────────────────────────────
+
+/**
+ * Compute the full summary needed by the main page.
+ *
+ * Returns:
+ * {
+ *   hasLeave: boolean,
+ *   message?: string,   // shown when hasLeave is false
+ *   current: {
+ *     ...periodInfo,
+ *     taken: number,
+ *     remaining: number,  // includes carryover if enabled
+ *     baseRemaining: number,  // before carryover
+ *   } | null,
+ *   previous: {
+ *     ...periodInfo,
+ *     taken: number,
+ *     remaining: number,
+ *     carryoverDays: number,
+ *   } | null,
+ * }
+ */
+export function calculateSummary(settings, records, today = new Date()) {
+  const { onboardDate, ruleType, customRules, allowCarryover } = settings;
+  if (!onboardDate) {
+    return { hasLeave: false, message: '請先在設定中填寫到職日。' };
+  }
+
+  const onboard = parseLocalDate(onboardDate);
+  const current = getPeriodContainingDate(onboard, today, ruleType, customRules);
+
+  if (!current) {
+    const firstMilestone = getMilestones(ruleType, customRules, 12)[0];
+    const firstDate = addMonthsToDate(onboard, firstMilestone);
+    return {
+      hasLeave: false,
+      message: `尚未達到最低服務年資（${firstMilestone} 個月），目前沒有特休假。到 ${toISODateString(firstDate)} 後將取得首批特休。`,
+      current: null,
+      previous: null,
+    };
+  }
+
+  const currentTaken = getLeaveTakenInPeriod(records, current.periodStart, current.periodEnd);
+  const baseRemaining = current.entitledDays - currentTaken;
+
+  let previousResult = null;
+  let carryover = 0;
+
+  if (allowCarryover) {
+    const prev = getPreviousPeriod(onboard, ruleType, customRules, today);
+    if (prev) {
+      const prevTaken = getLeaveTakenInPeriod(records, prev.periodStart, prev.periodEnd);
+      const prevRemaining = prev.entitledDays - prevTaken;
+      carryover = Math.max(0, prevRemaining);
+      previousResult = {
+        ...prev,
+        taken: prevTaken,
+        remaining: prevRemaining,
+        carryoverDays: carryover,
+      };
+    }
+  }
+
+  return {
+    hasLeave: true,
+    current: {
+      ...current,
+      taken: currentTaken,
+      baseRemaining,
+      remaining: baseRemaining + carryover,
+    },
+    previous: previousResult,
+  };
+}
+
+// ─── Compliance check ─────────────────────────────────────────────────────────
+
+/**
+ * Check if any custom rule gives fewer days than the labor law minimum
+ * for the same tenure threshold.
+ *
+ * Returns an array of warning objects.
+ */
+export function checkLaborLawCompliance(customRules) {
+  return customRules
+    .filter(rule => {
+      const legalMin = getLaborLawDays(rule.months);
+      return legalMin > 0 && rule.days < legalMin;
+    })
+    .map(rule => ({
+      months: rule.months,
+      customDays: rule.days,
+      legalMinimum: getLaborLawDays(rule.months),
+    }));
+}
