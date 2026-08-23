@@ -67,8 +67,7 @@ export default function LeaveCalendar({
           : new Date(periodStart.getFullYear(), periodStart.getMonth(), 1)
       }
       locale="zh-TW"
-      // Show Mon–Sun week layout
-      calendarType="iso8601"
+      calendarType="gregory"
       showNeighboringMonth={false}
     />
   )
