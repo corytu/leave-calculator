@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react'
+import Calendar from 'react-calendar'
+import { useState, useEffect, useRef } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { checkLaborLawCompliance, getLaborLawDays } from '../utils/leaveCalculations.js'
 import { DEFAULT_SETTINGS } from '../utils/storage.js'
+import { parseLocalDate, toISODateString } from '../utils/leaveCalculations.js'
 
 // Default custom rules pre-populated with labor law as a starting point
 const DEFAULT_CUSTOM_RULES = [
@@ -104,13 +106,7 @@ export default function Settings({ settings, onSave, onCancel }) {
           <label className="block text-sm font-medium text-stone-700 mb-1">
             到職日期
           </label>
-          <input
-            type="date"
-            value={onboardDate}
-            onChange={e => setOnboardDate(e.target.value)}
-            className="block w-full sm:w-48 rounded-md border border-stone-300 px-3 py-2 text-sm
-                       focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-          />
+          <DatePicker value={onboardDate} onChange={setOnboardDate} />
           <p className="text-xs text-stone-400 mt-1">
             特休年資的計算起點
           </p>
@@ -344,5 +340,64 @@ function RuleTypeCard({ selected, onClick, title, description }) {
       </div>
       <p className="text-xs text-stone-500 pl-6">{description}</p>
     </button>
+  )
+}
+
+function DatePicker({ value, onChange }) {
+  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState({ top: 0, left: 0 })
+  const buttonRef = useRef(null)
+  const dateObj = value ? parseLocalDate(value) : null
+
+  function handleOpen() {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect()
+      setPos({ top: rect.bottom + 4, left: rect.left })
+    }
+    setOpen(v => !v)
+  }
+
+  function handleSelect(date) {
+    onChange(toISODateString(date))
+    setOpen(false)
+  }
+
+  return (
+    <div className="inline-block">
+      {open && (
+        <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+      )}
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={handleOpen}
+        className="relative z-20 flex items-center gap-2 rounded-md border border-stone-300
+                   px-3 py-2 text-sm bg-white hover:border-stone-400
+                   focus:outline-none focus:ring-2 focus:ring-teal-500 min-w-[160px]"
+      >
+        <svg className="w-4 h-4 text-stone-400 flex-shrink-0" fill="none"
+             stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <rect x="3" y="4" width="18" height="18" rx="2" />
+          <path d="M16 2v4M8 2v4M3 10h18" />
+        </svg>
+        <span className={value ? 'text-stone-800' : 'text-stone-400'}>
+          {value || '請選擇日期'}
+        </span>
+      </button>
+      {open && (
+        <div
+          style={{ position: 'fixed', top: pos.top, left: pos.left }}
+          className="z-20 bg-white border border-stone-200 rounded-xl shadow-lg p-3"
+        >
+          <Calendar
+            onChange={handleSelect}
+            value={dateObj}
+            calendarType="gregory"
+            locale="zh-TW"
+            defaultActiveStartDate={dateObj ?? new Date()}
+          />
+        </div>
+      )}
+    </div>
   )
 }
