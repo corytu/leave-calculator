@@ -263,19 +263,27 @@ export default function Settings({ settings, onSave, onCancel }) {
       {/* ── 遞延 ────────────────────────────────────────────────────────── */}
       <Section title="假期遞延">
         <div className="flex items-start gap-3">
-          <button
-            role="switch"
-            aria-checked={allowCarryover}
-            onClick={() => setAllowCarryover(v => !v)}
-            className={`relative mt-0.5 flex-shrink-0 w-10 h-6 rounded-full transition-colors
-                        focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-1
-                        ${allowCarryover ? 'bg-teal-600' : 'bg-stone-300'}`}
-          >
-            <span
-              className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform
-                          ${allowCarryover ? 'translate-x-5' : 'translate-x-1'}`}
+          <label className="relative mt-0.5 inline-flex flex-shrink-0 cursor-pointer items-center">
+            <input
+              type="checkbox"
+              role="switch"
+              checked={allowCarryover}
+              onChange={() => setAllowCarryover(v => !v)}
+              className="peer sr-only"
             />
-          </button>
+            {/* 軌道 */}
+            <span
+              className="h-6 w-10 rounded-full bg-stone-300 transition-colors
+                        peer-checked:bg-teal-600
+                        peer-focus-visible:ring-2 peer-focus-visible:ring-teal-500
+                        peer-focus-visible:ring-offset-1"
+            />
+            {/* 圓點 */}
+            <span
+              className="absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow
+                        transition-transform peer-checked:translate-x-4"
+            />
+          </label>
           <div>
             <p className="text-sm font-medium text-stone-700">允許遞延</p>
             <p className="text-xs text-stone-500 mt-0.5">
