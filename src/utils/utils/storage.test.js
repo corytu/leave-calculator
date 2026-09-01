@@ -1,0 +1,67 @@
+import { describe, it, expect, beforeEach } from 'vitest'
+import {
+  loadSettings,
+  saveSettings,
+  loadRecords,
+  saveRecords,
+  DEFAULT_SETTINGS,
+} from './storage.js'
+
+// jsdom provides a working localStorage; just make sure each test starts clean.
+beforeEach(() => {
+  localStorage.clear()
+})
+
+describe('loadSettings', () => {
+  it('returns DEFAULT_SETTINGS when nothing is stored', () => {
+    expect(loadSettings()).toEqual(DEFAULT_SETTINGS)
+  })
+
+  it('merges stored data with defaults when some fields are missing', () => {
+    localStorage.setItem('leaveCalculator_settings', JSON.stringify({ onboardDate: '2024-01-01' }))
+    const result = loadSettings()
+    expect(result.onboardDate).toBe('2024-01-01')
+    expect(result.ruleType).toBe(DEFAULT_SETTINGS.ruleType)
+    expect(result.allowCarryover).toBe(DEFAULT_SETTINGS.allowCarryover)
+  })
+
+  it('falls back to defaults when stored JSON is corrupted', () => {
+    localStorage.setItem('leaveCalculator_settings', '{not valid json')
+    expect(loadSettings()).toEqual(DEFAULT_SETTINGS)
+  })
+})
+
+describe('saveSettings -> loadSettings round trip', () => {
+  it('persists and reloads settings correctly', () => {
+    const settings = {
+      onboardDate: '2022-03-10',
+      ruleType: 'custom',
+      customRules: [{ id: 'a', months: 6, days: 3 }],
+      allowCarryover: true,
+    }
+    saveSettings(settings)
+    expect(loadSettings()).toEqual(settings)
+  })
+})
+
+describe('loadRecords', () => {
+  it('returns an empty array when nothing is stored', () => {
+    expect(loadRecords()).toEqual([])
+  })
+
+  it('falls back to an empty array when stored JSON is corrupted', () => {
+    localStorage.setItem('leaveCalculator_records', 'not json at all')
+    expect(loadRecords()).toEqual([])
+  })
+})
+
+describe('saveRecords -> loadRecords round trip', () => {
+  it('persists and reloads records correctly', () => {
+    const records = [
+      { id: '1', startDate: '2024-01-08', days: 1 },
+      { id: '2', startDate: '2024-02-01', days: 0.25 },
+    ]
+    saveRecords(records)
+    expect(loadRecords()).toEqual(records)
+  })
+})
