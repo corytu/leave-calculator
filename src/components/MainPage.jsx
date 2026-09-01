@@ -79,6 +79,7 @@ export default function MainPage({
       {/* ── Summary cards ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-3 gap-3">
         <SummaryCard
+          testId="summary-entitled"
           label="本年度天數"
           value={current.entitledDays}
           unit="天"
@@ -87,11 +88,13 @@ export default function MainPage({
             : undefined}
         />
         <SummaryCard
+          testId="summary-taken"
           label="已休天數"
           value={current.taken}
           unit="天"
         />
         <SummaryCard
+          testId="summary-remaining"
           label="剩餘可休"
           value={current.remaining}
           unit="天"
@@ -106,9 +109,10 @@ export default function MainPage({
             上一週年度（遞延來源）
           </p>
           <div className="grid grid-cols-3 gap-3">
-            <MiniStat label="共" value={`${previous.entitledDays} 天`} />
-            <MiniStat label="已休" value={`${previous.taken} 天`} />
+            <MiniStat testId="previous-entitled" label="共" value={`${previous.entitledDays} 天`} />
+            <MiniStat testId="previous-taken" label="已休" value={`${previous.taken} 天`} />
             <MiniStat
+              testId="previous-carryover"
               label="遞延"
               value={`${previous.carryoverDays} 天`}
               accent
@@ -203,9 +207,11 @@ function OnboardBanner({ settings }) {
   )
 }
 
-function SummaryCard({ label, value, unit, sub, highlight }) {
+function SummaryCard({ testId, label, value, unit, sub, highlight }) {
   return (
-    <div className={`rounded-xl border p-4 text-center
+    <div
+      data-testid={testId}
+      className={`rounded-xl border p-4 text-center
       ${highlight
         ? 'bg-teal-700 border-teal-700 text-white'
         : 'bg-white border-stone-200'
@@ -225,9 +231,9 @@ function SummaryCard({ label, value, unit, sub, highlight }) {
   )
 }
 
-function MiniStat({ label, value, accent }) {
+function MiniStat({ testId, label, value, accent }) {
   return (
-    <div className="text-center">
+    <div data-testid={testId} className="text-center">
       <p className="text-xs text-amber-600 mb-0.5">{label}</p>
       <p className={`text-base font-semibold ${accent ? 'text-amber-800' : 'text-amber-700'}`}>
         {value}
