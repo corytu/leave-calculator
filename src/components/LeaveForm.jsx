@@ -187,7 +187,9 @@ function RecordRow({ record, isEditing, onEdit, onDelete }) {
                      ${isEditing ? 'bg-teal-50 ring-1 ring-teal-300' : 'hover:bg-stone-50'}`}>
       <div className="flex items-center gap-3">
         <span className="text-stone-700 font-medium tabular-nums">{record.startDate}</span>
-        <span className={`text-xs px-2 py-0.5 rounded-full font-medium
+        <span
+          data-testid="record-days"
+          className={`text-xs px-2 py-0.5 rounded-full font-medium
                           ${record.days < 1
                             ? 'bg-stone-100 text-stone-600'
                             : 'bg-teal-100 text-teal-700'
