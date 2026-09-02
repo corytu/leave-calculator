@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { freezeTime, clearAppStorage, seedAppStorage } from './helpers.js'
+import { freezeTime, seedAppStorage, zhDayLabel } from './helpers.js'
 
 // onboard 2024-06-15 + frozen "today" 2025-06-15 -> exactly 12 completed
 // months -> current period is 2025-06-15 ~ 2026-06-14, entitled 7 days.
@@ -13,7 +13,6 @@ const BASE_SETTINGS = {
 test.describe('月曆互動與請假記錄 CRUD', () => {
   test.beforeEach(async ({ page }) => {
     await freezeTime(page)
-    await clearAppStorage(page)
     await seedAppStorage(page, { settings: BASE_SETTINGS, records: [] })
     await page.goto('/')
   })
@@ -23,30 +22,26 @@ test.describe('月曆互動與請假記錄 CRUD', () => {
     await expect(weekdays).toHaveCount(7)
 
     // June 1st 2025 is before the period start (2025-06-15) and should be
-    // rendered disabled / out-of-period.
-    // NOTE: matches "1" with or without a trailing CJK day suffix (e.g. "1日"),
-    // since we haven't yet confirmed react-calendar's exact zh-TW day format.
-    const juneFirst = page
-      .locator('.react-calendar__tile')
-      .filter({ hasText: /^1日?$/ })
-      .first()
+    // rendered disabled / out-of-period. Targeted by its accessible name
+    // (confirmed via a real Playwright snapshot: react-calendar gives each
+    // day tile an aria-label of the full "YYYY年M月D日" date), not by
+    // guessing at visible text formatting.
+    const juneFirst = page.getByRole('button', { name: zhDayLabel({ year: 2025, month: 6, day: 1 }), exact: true })
     await expect(juneFirst).toHaveClass(/react-calendar__tile--out-of-period/)
   })
 
   test('點擊月曆日期會帶入表單的開始日期', async ({ page }) => {
-    const day20 = page
-      .locator('.react-calendar__month-view__days__day:not(.react-calendar__month-view__days__day--neighboringMonth)')
-      .filter({ hasText: /^20日?$/ })
+    const day20 = page.getByRole('button', { name: zhDayLabel({ year: 2025, month: 6, day: 20 }), exact: true })
     await day20.click()
 
     await expect(page.locator('input[type="date"]')).toHaveValue('2025-06-20')
   })
 
   test('新增請假記錄後：清單出現、月曆綠點出現、已休天數更新', async ({ page }) => {
-    // Fill the date directly rather than clicking the calendar tile, so this
-    // test doesn't depend on exactly how react-calendar renders day-tile text
-    // under the zh-TW locale (see the dedicated calendar-click test above for
-    // that specific behaviour).
+    // Fill the date directly rather than clicking the calendar tile here --
+    // clicking the tile itself is already covered end to end by the
+    // dedicated test above, so this one can focus purely on the CRUD +
+    // summary-update behaviour without depending on the calendar too.
     await page.locator('input[type="date"]').fill('2025-06-20')
     await page.getByRole('button', { name: '2天', exact: true }).click()
     await page.getByRole('button', { name: '新增', exact: true }).click()
@@ -55,11 +50,7 @@ test.describe('月曆互動與請假記錄 CRUD', () => {
     await expect(page.getByTestId('summary-taken')).toContainText('2')
 
     // The calendar tile for the 20th should now show the leave dot.
-    // Matches "20" with or without a trailing CJK day suffix, since we
-    // haven't yet confirmed which react-calendar renders under zh-TW.
-    const tile20 = page
-      .locator('.react-calendar__month-view__days__day:not(.react-calendar__month-view__days__day--neighboringMonth)')
-      .filter({ hasText: /^20日?$/ })
+    const tile20 = page.getByRole('button', { name: zhDayLabel({ year: 2025, month: 6, day: 20 }), exact: true })
     await expect(tile20.locator('.leave-dot')).toBeVisible()
   })
 
@@ -107,8 +98,11 @@ test.describe('月曆互動與請假記錄 CRUD', () => {
 test.describe('資料持久化', () => {
   test('新增記錄並重新整理頁面後，資料仍然存在', async ({ page }) => {
     await freezeTime(page)
-    await clearAppStorage(page)
-    await seedAppStorage(page, { settings: BASE_SETTINGS, records: [] })
+    // Only seed settings here (not records): this init script re-fires on
+    // page.reload() below, and we specifically want the record we add via
+    // the UI to survive that reload untouched. See the warning in
+    // seedAppStorage's doc comment.
+    await seedAppStorage(page, { settings: BASE_SETTINGS })
     await page.goto('/')
 
     await page.locator('input[type="date"]').fill('2025-06-20')

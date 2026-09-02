@@ -23,25 +23,40 @@ export async function freezeTime(page, iso = FIXED_TODAY) {
   await page.clock.install({ time: new Date(iso) })
 }
 
-/** Clear both localStorage keys used by the app. */
-export async function clearAppStorage(page) {
-  await page.addInitScript(() => {
-    window.localStorage.removeItem('leaveCalculator_settings')
-    window.localStorage.removeItem('leaveCalculator_records')
-  })
+/**
+ * Build the zh-TW accessible name react-calendar gives a month-view day tile,
+ * e.g. zhDayLabel({year: 2025, month: 6, day: 20}) -> "2025年6月20日".
+ * Confirmed directly from a Playwright accessibility snapshot (not guessed):
+ * `button "2025年6月1日" [disabled]: 1日`. Used with getByRole for exact,
+ * unambiguous day-tile targeting instead of matching on visible text/class.
+ */
+export function zhDayLabel({ year, month, day }) {
+  return `${year}年${month}月${day}日`
 }
 
 /**
- * Seed settings + records directly into localStorage before first navigation.
- * Mirrors the shape of DEFAULT_SETTINGS / records in src/utils/storage.js.
+ * Seed settings and/or records directly into localStorage before first
+ * navigation. Mirrors the shape of DEFAULT_SETTINGS / records in
+ * src/utils/storage.js.
+ *
+ * IMPORTANT: this uses page.addInitScript(), which re-runs on *every*
+ * navigation in the page's lifetime -- including page.reload(). Only pass
+ * the fields you want forcibly reset on every future navigation too. In
+ * particular, don't pass `records` in a test that adds records via the real
+ * UI and then reloads to check persistence -- doing so will silently wipe
+ * whatever was added, since this same script fires again on that reload.
+ * Omit a field entirely (rather than passing `[]` / `{}`) to leave it alone.
  */
-export async function seedAppStorage(page, { settings, records = [] } = {}) {
+export async function seedAppStorage(page, { settings, records } = {}) {
   await page.addInitScript(
     ([settingsJson, recordsJson]) => {
-      if (settingsJson) window.localStorage.setItem('leaveCalculator_settings', settingsJson)
-      if (recordsJson) window.localStorage.setItem('leaveCalculator_records', recordsJson)
+      if (settingsJson !== null) window.localStorage.setItem('leaveCalculator_settings', settingsJson)
+      if (recordsJson !== null) window.localStorage.setItem('leaveCalculator_records', recordsJson)
     },
-    [settings ? JSON.stringify(settings) : null, JSON.stringify(records)]
+    [
+      settings !== undefined ? JSON.stringify(settings) : null,
+      records !== undefined ? JSON.stringify(records) : null,
+    ]
   )
 }
 
@@ -60,18 +75,18 @@ export async function pickDateViaCalendarPopup(page, { year, month, day }) {
   await label.click()
   await label.click()
 
-  // Decade view: tiles are years. Matches with or without a trailing CJK
-  // suffix (e.g. "2023年"), since we haven't yet confirmed react-calendar's
-  // exact zh-TW year format.
+  // Decade/year-view tiles: we don't have a confirmed accessible-name format
+  // for these two levels (unlike the day tiles below, which we verified via
+  // an actual Playwright snapshot), so these stay as regexes tolerant of an
+  // optional CJK suffix. This isn't a blind guess though -- this exact
+  // pattern already passed in a real run. If you want it pinned down with
+  // the same certainty as the day tiles, temporarily add
+  // `console.log(await popup.innerHTML())` right after the two `label.click()`
+  // calls above, run once, and share the output.
   await popup.getByText(new RegExp(`^${year}年?$`)).click()
-
-  // Year view: tiles are months, labelled per the zh-TW locale (e.g. "1月").
   await popup.getByText(new RegExp(`^${month}月$`)).click()
 
-  // Month view: tiles are day numbers, same "with/without CJK suffix" caveat
-  // as above.
-  await popup
-    .locator('.react-calendar__month-view__days__day:not(.react-calendar__month-view__days__day--neighboringMonth)')
-    .filter({ hasText: new RegExp(`^${day}日?$`) })
-    .click()
+  // Month view: day tiles. Confirmed via snapshot -- accessible name is the
+  // full "YYYY年M月D日" date, so this is an exact, unambiguous match.
+  await popup.getByRole('button', { name: zhDayLabel({ year, month, day }), exact: true }).click()
 }
