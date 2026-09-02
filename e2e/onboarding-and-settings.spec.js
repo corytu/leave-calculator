@@ -1,10 +1,9 @@
 import { test, expect } from '@playwright/test'
-import { freezeTime, clearAppStorage, seedAppStorage, pickDateViaCalendarPopup } from './helpers.js'
+import { freezeTime, seedAppStorage, pickDateViaCalendarPopup } from './helpers.js'
 
 test.describe('首次使用與設定流程', () => {
   test.beforeEach(async ({ page }) => {
     await freezeTime(page)
-    await clearAppStorage(page)
   })
 
   test('首次進入（無資料）顯示尚未設定到職日的空狀態', async ({ page }) => {
@@ -37,7 +36,6 @@ test.describe('首次使用與設定流程', () => {
 test.describe('特休規則設定', () => {
   test.beforeEach(async ({ page }) => {
     await freezeTime(page)
-    await clearAppStorage(page)
     // Seed an onboard date so the main page has something to show once we
     // navigate back to it; this round of tests focuses on the rule editor
     // itself, not on re-proving the date picker (covered above).

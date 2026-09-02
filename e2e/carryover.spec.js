@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { freezeTime, clearAppStorage, seedAppStorage } from './helpers.js'
+import { freezeTime, seedAppStorage } from './helpers.js'
 
 // onboard 2022-06-15 + frozen "today" 2025-06-15 -> exactly 36 completed
 // months -> current milestone 36 (14 days), previous milestone 24 (10 days).
@@ -15,7 +15,6 @@ const SETTINGS_WITH_CARRYOVER = {
 test.describe('假期遞延', () => {
   test.beforeEach(async ({ page }) => {
     await freezeTime(page)
-    await clearAppStorage(page)
     await seedAppStorage(page, { settings: SETTINGS_WITH_CARRYOVER, records: [] })
     await page.goto('/')
   })
