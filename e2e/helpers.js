@@ -60,15 +60,18 @@ export async function pickDateViaCalendarPopup(page, { year, month, day }) {
   await label.click()
   await label.click()
 
-  // Decade view: tiles are years, e.g. "2023".
-  await popup.getByText(String(year), { exact: true }).click()
+  // Decade view: tiles are years. Matches with or without a trailing CJK
+  // suffix (e.g. "2023年"), since we haven't yet confirmed react-calendar's
+  // exact zh-TW year format.
+  await popup.getByText(new RegExp(`^${year}年?$`)).click()
 
   // Year view: tiles are months, labelled per the zh-TW locale (e.g. "1月").
-  await popup.getByText(`${month}月`, { exact: true }).click()
+  await popup.getByText(new RegExp(`^${month}月$`)).click()
 
-  // Month view: tiles are day numbers.
+  // Month view: tiles are day numbers, same "with/without CJK suffix" caveat
+  // as above.
   await popup
     .locator('.react-calendar__month-view__days__day:not(.react-calendar__month-view__days__day--neighboringMonth)')
-    .getByText(String(day), { exact: true })
+    .filter({ hasText: new RegExp(`^${day}日?$`) })
     .click()
 }

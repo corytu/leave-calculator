@@ -38,7 +38,7 @@ test.describe('頁尾', () => {
     await page.goto('/')
 
     await expect(page.getByText('本年度週年制區間：')).toBeVisible()
-    await expect(page.getByText('2025-06-15')).toBeVisible()
-    await expect(page.getByText('2026-06-14')).toBeVisible()
+    await expect(page.getByText('2025-06-15', { exact: true })).toBeVisible()
+    await expect(page.getByText('2026-06-14', { exact: true })).toBeVisible()
   })
 })
