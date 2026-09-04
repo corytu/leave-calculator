@@ -1,4 +1,4 @@
-# leave-calculator
+# annual-leave-calculator
 
 簡單的個人特休計算機，用來管理自己的休假記錄，並快速掌握剩餘可休天數。
 
@@ -16,7 +16,7 @@
 
 ## 線上使用
 
-👉 [https://corytu.github.io/leave-calculator/](https://corytu.github.io/leave-calculator/)
+👉 [https://corytu.github.io/annual-leave-calculator/](https://corytu.github.io/annual-leave-calculator/)
 
 ## 本地端開發
 
@@ -32,7 +32,7 @@ npm install
 npm run dev
 ```
 
-開啟瀏覽器至 `http://localhost:5173/leave-calculator/` 即可使用。
+開啟瀏覽器至 `http://localhost:5173/annual-leave-calculator/` 即可使用。
 
 ### 建置
 
