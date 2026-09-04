@@ -59,34 +59,3 @@ export async function seedAppStorage(page, { settings, records } = {}) {
     ]
   )
 }
-
-/**
- * Drive react-calendar's popup date picker (used in Settings for 到職日) to
- * select an arbitrary date, by drilling up to decade view and back down.
- *
- * @param {import('@playwright/test').Page} page
- * @param {{year: number, month: number, day: number}} target month is 1-12
- */
-export async function pickDateViaCalendarPopup(page, { year, month, day }) {
-  const popup = page.locator('.react-calendar')
-  const label = popup.locator('.react-calendar__navigation__label')
-
-  // From month view: 1 click -> year view, 2 clicks -> decade view.
-  await label.click()
-  await label.click()
-
-  // Decade/year-view tiles: we don't have a confirmed accessible-name format
-  // for these two levels (unlike the day tiles below, which we verified via
-  // an actual Playwright snapshot), so these stay as regexes tolerant of an
-  // optional CJK suffix. This isn't a blind guess though -- this exact
-  // pattern already passed in a real run. If you want it pinned down with
-  // the same certainty as the day tiles, temporarily add
-  // `console.log(await popup.innerHTML())` right after the two `label.click()`
-  // calls above, run once, and share the output.
-  await popup.getByText(new RegExp(`^${year}年?$`)).click()
-  await popup.getByText(new RegExp(`^${month}月$`)).click()
-
-  // Month view: day tiles. Confirmed via snapshot -- accessible name is the
-  // full "YYYY年M月D日" date, so this is an exact, unambiguous match.
-  await popup.getByRole('button', { name: zhDayLabel({ year, month, day }), exact: true }).click()
-}
