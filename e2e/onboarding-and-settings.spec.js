@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { freezeTime, seedAppStorage, pickDateViaCalendarPopup } from './helpers.js'
+import { freezeTime, seedAppStorage } from './helpers.js'
 
 test.describe('首次使用與設定流程', () => {
   test.beforeEach(async ({ page }) => {
@@ -20,9 +20,8 @@ test.describe('首次使用與設定流程', () => {
 
     // Open the onboard-date picker and select 2023-06-15 (exactly 24 completed
     // months before the frozen "today" of 2025-06-15 -> milestone 24, 10 days).
-    await page.getByRole('button', { name: '請選擇日期' }).click()
-    await pickDateViaCalendarPopup(page, { year: 2023, month: 6, day: 15 })
-    await expect(page.getByRole('button', { name: '2023-06-15' })).toBeVisible()
+    await page.locator('input[type="date"]').fill('2023-06-15')
+    await expect(page.locator('input[type="date"]')).toHaveValue('2023-06-15')
 
     await page.getByRole('button', { name: '儲存設定' }).click()
 
