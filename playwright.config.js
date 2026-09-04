@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
 const PORT = 4173
-const BASE_URL = `http://localhost:${PORT}/leave-calculator/`
+const BASE_URL = `http://localhost:${PORT}/annual-leave-calculator/`
 
 export default defineConfig({
   testDir: './e2e',

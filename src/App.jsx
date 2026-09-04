@@ -139,7 +139,7 @@ function Footer() {
         <p>
           本網站以 MIT 授權，原始碼請見{' '}
           <a
-            href="https://github.com/corytu/leave-calculator"
+            href="https://github.com/corytu/annual-leave-calculator"
             target="_blank"
             rel="noopener noreferrer"
             className="underline hover:text-stone-600"

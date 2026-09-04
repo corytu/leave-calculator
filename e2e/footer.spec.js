@@ -20,7 +20,7 @@ test.describe('頁尾', () => {
 
     const githubLink = page.getByRole('link', { name: 'GitHub' })
     await expect(githubLink).toBeVisible()
-    await expect(githubLink).toHaveAttribute('href', 'https://github.com/corytu/leave-calculator')
+    await expect(githubLink).toHaveAttribute('href', 'https://github.com/corytu/annual-leave-calculator')
   })
 
   test('本年度週年制區間文字存在且日期正確', async ({ page }) => {
